@@ -70,13 +70,25 @@ def _parse_react(text: str) -> dict[str, Any]:
     action = re.search(r"Action\s*:\s*([\w.-]+)", text, flags=re.IGNORECASE)
     if final and (action is None or final.start() < action.start()):
         return {"final": final.group(1).strip()}
-    action_input = re.search(r"Action Input\s*:\s*", text, flags=re.IGNORECASE)
-    if not action or not action_input:
+    if not action:
         raise ValueError("Response is neither a ReAct action nor a final answer")
-    arguments, _ = json.JSONDecoder().raw_decode(text[action_input.end() :].lstrip())
-    if not isinstance(arguments, dict):
-        raise ValueError("ReAct action input must be a JSON object")
-    return {"tool": action.group(1), "arguments": arguments}
+    # The arguments are the first JSON object after the action name. The literal
+    # "Action Input:" label the parser used to demand is only described in prose by the
+    # system prompt, so a model that names the tool and then emits its JSON has followed
+    # the protocol as stated; requiring the label turned every such turn into a retry
+    # until the budget was gone. Every other profile parses arguments with extract_json,
+    # which never demanded a label either, so ReAct was the only stricter contract here.
+    decoder = json.JSONDecoder()
+    tail = text[action.end() :]
+    for start, character in enumerate(tail):
+        if character != "{":
+            continue
+        try:
+            arguments, _ = decoder.raw_decode(tail[start:])
+        except json.JSONDecodeError:
+            continue
+        return {"tool": action.group(1), "arguments": arguments}
+    raise ValueError("ReAct action names a tool but supplies no JSON action input")
 
 
 async def run_react(ctx: RunContext) -> str:

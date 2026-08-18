@@ -573,6 +573,7 @@ class Platform:
             "HARNESS_API_TIMEOUT_S",
             "HARNESS_API_RETRIES",
             "HARNESS_MAX_OUTPUT_TOKENS",
+            "HARNESS_REASONING_EFFORT",
         ]
         api_base = os.environ.get("HARNESS_API_BASE", "")
         resume_identity = {
@@ -712,6 +713,7 @@ class Platform:
             "HARNESS_API_TIMEOUT_S",
             "HARNESS_API_RETRIES",
             "HARNESS_MAX_OUTPUT_TOKENS",
+            "HARNESS_REASONING_EFFORT",
         }
         allowed = harness_env | set(benchmark.raw.get("env_allowlist", []))
         unknown = sorted(set(pass_env) - allowed)
@@ -834,6 +836,7 @@ class Platform:
             "HARNESS_API_TIMEOUT_S",
             "HARNESS_API_RETRIES",
             "HARNESS_MAX_OUTPUT_TOKENS",
+            "HARNESS_REASONING_EFFORT",
         }
         unknown = sorted(set(pass_env) - harness_env)
         if unknown:
@@ -908,6 +911,7 @@ class Platform:
             "HARNESS_API_TIMEOUT_S",
             "HARNESS_API_RETRIES",
             "HARNESS_MAX_OUTPUT_TOKENS",
+            "HARNESS_REASONING_EFFORT",
         }
         allowed = harness_env | {"HF_TOKEN"}
         unknown = sorted(set(pass_env) - allowed)

@@ -113,3 +113,35 @@ class NativeTransportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReasoningEffortTests(unittest.TestCase):
+    """A matched control must send the same reasoning knob the product harness sends."""
+
+    def _payload(self, config: ApiConfig) -> dict:
+        captured: dict = {}
+
+        def fake_urlopen(request, timeout=None):
+            captured.update(json.loads(request.data.decode("utf-8")))
+            return _Response({
+                "choices": [{"message": {"content": "ok"}}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+            })
+
+        with patch("urllib.request.urlopen", fake_urlopen):
+            asyncio.run(OpenAICompatibleClient(config).complete([{"role": "user", "content": "hi"}]))
+        return captured
+
+    def _config(self, **overrides) -> ApiConfig:
+        return ApiConfig(base_url="https://provider.example/v1", api_key="k", model="m", **overrides)
+
+    def test_reasoning_effort_replaces_temperature(self) -> None:
+        payload = self._payload(self._config(reasoning_effort="high"))
+        self.assertEqual(payload["reasoning_effort"], "high")
+        self.assertNotIn("temperature", payload)
+
+    def test_temperature_is_sent_when_no_reasoning_effort_is_configured(self) -> None:
+        payload = self._payload(self._config(temperature=0.0))
+        self.assertEqual(payload["temperature"], 0.0)
+        self.assertNotIn("reasoning_effort", payload)
+

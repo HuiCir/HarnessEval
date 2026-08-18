@@ -114,6 +114,38 @@ class HarnessTests(unittest.TestCase):
         )
         self.assertEqual(answer, "42")
 
+    def test_react_action_without_the_action_input_label(self) -> None:
+        """The prompt only describes "JSON Action Input" in prose, and gpt-5.6-luna names
+        the tool then emits its JSON with no such label, wrapped in narration and leaked
+        channel markers. Rejecting that shape cost a real GAIA run all 20 turns and every
+        tool call, so the label is optional and the arguments are the first JSON object
+        after the action name."""
+        answer, environment = self.run_profile(
+            "react",
+            [
+                'Thought: get alpha.Action: lookup\n{"key":"alpha"}\n{"key":"alpha"} to=lookup code:',
+                'Thought: get beta.Action: lookup\n{"key":"beta"}Thought: then I multiply them.',
+                'Thought: multiply.Action: multiply\n{"a":6,"b":7}',
+                "Thought: done\nFinal Answer: 42",
+            ],
+        )
+        self.assertEqual(answer, "42")
+        self.assertEqual([call["name"] for call in environment.calls], ["lookup", "lookup", "multiply"])
+
+    def test_react_action_without_any_json_stays_a_protocol_error(self) -> None:
+        """Naming a tool is not enough to invoke it. A turn that never supplies arguments
+        must go back as a protocol error rather than reach the tool with a guessed object."""
+        answer, environment = self.run_profile(
+            "react",
+            [
+                "Thought: I will look it up. to=lookup code:",
+                'Thought: get alpha\nAction: lookup\nAction Input: {"key":"alpha"}',
+                "Thought: done\nFinal Answer: 42",
+            ],
+        )
+        self.assertEqual(answer, "42")
+        self.assertEqual([call["name"] for call in environment.calls], ["lookup"])
+
     def test_plan_execute_nested_observation_reference(self) -> None:
         answer, environment = self.run_profile(
             "plan-execute",

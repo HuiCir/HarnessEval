@@ -20,6 +20,7 @@ class ApiConfig:
     timeout_seconds: float = 180.0
     transport_retries: int = 3
     max_output_tokens: int | None = None
+    reasoning_effort: str | None = None
 
     @classmethod
     def from_env(cls) -> "ApiConfig":
@@ -37,6 +38,7 @@ class ApiConfig:
             timeout_seconds=float(os.getenv("HARNESS_API_TIMEOUT_S", "180")),
             transport_retries=max(0, int(os.getenv("HARNESS_API_RETRIES", "3"))),
             max_output_tokens=int(raw_max) if raw_max else None,
+            reasoning_effort=os.getenv("HARNESS_REASONING_EFFORT", "").strip() or None,
         )
 
 
@@ -104,9 +106,14 @@ class OpenAICompatibleClient:
         payload: dict[str, Any] = {
             "model": self.config.model,
             "messages": messages,
-            "temperature": self.config.temperature if temperature is None else temperature,
             "stream": False,
         }
+        # A reasoning model rejects or ignores temperature; the product harness omits it for
+        # the same reason, so a matched control must omit it here too.
+        if self.config.reasoning_effort:
+            payload["reasoning_effort"] = self.config.reasoning_effort
+        else:
+            payload["temperature"] = self.config.temperature if temperature is None else temperature
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
         if tools:
